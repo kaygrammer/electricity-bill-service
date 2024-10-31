@@ -1,4 +1,4 @@
-import { Controller, Post, Body, UseGuards, Request, BadRequestException } from '@nestjs/common';
+import { Controller, Post, Get, Body, UseGuards, Request, BadRequestException } from '@nestjs/common';
 import { WalletService } from './wallets.service';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 import { Wallet } from './wallet.model';
@@ -23,6 +23,20 @@ export class WalletController {
       success: true,
       message: 'Funds added successfully',
       data: updatedWallet,
+    };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get()
+  async getWallet(@Request() req: any): Promise<ApiResponse<Wallet>> {
+    const userId = req.user.userId;
+
+    const wallet = await this.walletService.findWalletByUserId(userId);
+
+    return {
+      success: true,
+      message: 'Wallet retrieved successfully',
+      data: wallet,
     };
   }
 }

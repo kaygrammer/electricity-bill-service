@@ -1,5 +1,6 @@
-import { Injectable, NotFoundException, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, InternalServerErrorException } from '@nestjs/common';
 import { Wallet } from './wallet.model';
+import { Transaction } from 'sequelize';
 
 @Injectable()
 export class WalletService {
@@ -7,8 +8,8 @@ export class WalletService {
     return await Wallet.create({ userId, balance: 0 });
   }
 
-  async findWalletByUserId(userId: string): Promise<Wallet> {
-    const wallet = await Wallet.findOne({ where: { userId } });
+  async findWalletByUserId(userId: string, transaction?: Transaction): Promise<Wallet> {
+    const wallet = await Wallet.findOne({ where: { userId }, transaction });
     if (!wallet) {
       throw new NotFoundException('Wallet not found for this user');
     }
@@ -35,17 +36,27 @@ export class WalletService {
     }
   }
 
-  async deductFunds(walletId: string, amount: number): Promise<Wallet> {
-    const wallet = await Wallet.findOne({ where: { id: walletId } });
+  async deductFunds(walletId: string, amount: number, transaction?: Transaction): Promise<Wallet> {
+    const wallet = await Wallet.findOne({
+      where: { id: walletId },
+      lock: transaction?.LOCK.UPDATE,
+      transaction,
+    });
+
     if (!wallet) {
       throw new NotFoundException('Wallet not found');
     }
 
     const amountToDeduct = parseFloat(amount.toString());
+    const currentBalance = parseFloat(wallet.balance.toString());
 
-    wallet.balance = parseFloat(wallet.balance.toString()) - amountToDeduct;
+    if (currentBalance < amountToDeduct) {
+      throw new BadRequestException('Insufficient funds in wallet');
+    }
 
-    await wallet.save();
+    wallet.balance = currentBalance - amountToDeduct;
+
+    await wallet.save({ transaction });
 
     return wallet;
   }

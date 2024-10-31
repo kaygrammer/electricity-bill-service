@@ -7,6 +7,7 @@ import { UpdateBillStatusDto } from './dto/update-bill-status.dto';
 import { ProviderAService } from './providers/provider-a.service';
 import { ProviderBService } from './providers/provider-b.service';
 import { BillPaidEvent } from './events/bill-paid.event';
+import { Sequelize } from 'sequelize-typescript';
 
 @Injectable()
 export class BillsService {
@@ -15,6 +16,7 @@ export class BillsService {
     private readonly eventEmitter: EventEmitter2,
     private readonly providerAService: ProviderAService,
     private readonly providerBService: ProviderBService,
+    private readonly sequelize: Sequelize,
   ) {}
 
   async createBill(userId: string, createBillDto: CreateBillDto): Promise<Bill> {
@@ -76,29 +78,30 @@ export class BillsService {
 
   async payBill(userId: string, billId: string, provider: 'A' | 'B', transactionId: string): Promise<Bill> {
     const wallet = await this.walletService.findWalletByUserId(userId);
+
     const walletBalance = parseFloat(wallet.balance.toString());
     const bill = await this.getBillById(billId);
 
-    try {
-      if (!bill) {
-        throw new NotFoundException('Bill not found');
-      }
+    if (!bill) {
+      throw new NotFoundException('Bill not found');
+    }
 
-      if (bill.status === 'Paid') {
-        throw new BadRequestException('This bill has already been paid');
-      }
+    if (bill.status === 'Paid') {
+      throw new BadRequestException('This bill has already been paid');
+    }
 
-      const existingPayment = await Bill.findOne({ where: { transactionId } });
-      if (existingPayment) {
-        throw new BadRequestException('possible duplicate payment detected');
-      }
+    const existingPayment = await Bill.findOne({ where: { transactionId } });
+    if (existingPayment) {
+      throw new BadRequestException('Possible duplicate payment detected');
+    }
 
-      const billAmount = parseFloat(bill.amount.toString());
-      if (walletBalance < billAmount) {
-        this.eventEmitter.emit('low_balance', { userId: bill.userId, balance: wallet.balance });
-        throw new BadRequestException('Insufficient funds in wallet');
-      }
+    const billAmount = parseFloat(bill.amount.toString());
+    if (walletBalance < billAmount) {
+      this.eventEmitter.emit('low_balance', { userId: bill.userId, balance: wallet.balance });
+      throw new BadRequestException('Insufficient funds in wallet');
+    }
 
+    return this.sequelize.transaction(async (transaction) => {
       let paymentSuccess: boolean;
       if (provider === 'A') {
         paymentSuccess = await this.providerAService.processPayment(billAmount);
@@ -110,17 +113,15 @@ export class BillsService {
         throw new InternalServerErrorException('Failed to process payment with provider');
       }
 
-      await this.walletService.deductFunds(wallet.id, billAmount);
+      await this.walletService.deductFunds(wallet.id, billAmount, transaction);
+
       bill.status = 'Paid';
       bill.transactionId = transactionId;
-      await bill.save();
+      await bill.save({ transaction });
 
       this.eventEmitter.emit('bill_paid', { billId: bill.id, userId: bill.userId, amount: billAmount });
 
       return bill;
-    } catch (error) {
-      console.log(error.message);
-      throw error;
-    }
+    });
   }
 }

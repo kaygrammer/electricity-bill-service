@@ -6,9 +6,6 @@ import { User } from './users/user.model';
 import { Bill } from './bills/bill.model';
 import { Wallet } from './wallets/wallet.model';
 import { WalletsModule } from './wallets/wallets.module';
-import { PaymentsModule } from './payments/payments.module';
-import { NotificationsModule } from './notifications/notifications.module';
-import { EventsModule } from './events/events.module';
 import { BillsModule } from './bills/bills.module';
 import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
@@ -33,9 +30,6 @@ import { LoggerMiddleware } from 'middleware/logger.middleware';
     EventEmitterModule.forRoot(),
     BillsModule,
     WalletsModule,
-    PaymentsModule,
-    NotificationsModule,
-    EventsModule,
     UsersModule,
     AuthModule,
   ],
