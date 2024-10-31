@@ -23,3 +23,4 @@ export class UsersService {
     return this.userModel.findOne({ where: { email } });
   }
 }
+
