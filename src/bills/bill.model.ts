@@ -27,8 +27,17 @@ export class Bill extends Model<Bill> {
   })
   status: 'Pending' | 'Paid';
 
-  @Column({ allowNull: true })
-  transactionId: string;
+  @Column({
+    type: DataType.STRING,
+    allowNull: false,
+  })
+  meterNumber: string;
+
+  @Column({
+    type: DataType.ENUM('A', 'B'),
+    allowNull: false,
+  })
+  provider: 'A' | 'B';
 
   @ForeignKey(() => User)
   @Column({

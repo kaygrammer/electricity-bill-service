@@ -7,11 +7,11 @@ import { ApiResponse } from 'src/responses/api-response.interface';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 import { v4 as uuidv4 } from 'uuid';
 
-@Controller('bills')
+@Controller('electricity')
 export class BillsController {
   constructor(private readonly billsService: BillsService) {}
 
-  @Post('create')
+  @Post('verify')
   @UseGuards(JwtAuthGuard)
   async createBill(@Request() req: any, @Body() createBillDto: CreateBillDto): Promise<ApiResponse<Bill>> {
     const userId = req.user.userId;
@@ -22,6 +22,20 @@ export class BillsController {
       success: true,
       message: 'Bill created successfully',
       data: bill,
+    };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('Vend/:validationRef/pay')
+  async payBill(@Param('validationRef') validationRef: string, @Request() req: any): Promise<ApiResponse<Bill>> {
+    const userId = req.user.userId;
+
+    const payment = await this.billsService.payBill(userId, validationRef);
+
+    return {
+      success: true,
+      message: 'Bill paid successfully and wallet charged successfully',
+      data: payment,
     };
   }
 
@@ -58,26 +72,6 @@ export class BillsController {
       success: true,
       message: 'Bills retrieved successfully',
       data: bills,
-    };
-  }
-
-  @UseGuards(JwtAuthGuard)
-  @Post(':billId/pay/:provider')
-  async payBill(@Param('billId') billId: string, @Param('provider') provider: string, @Request() req: any) {
-    const userId = req.user.userId;
-
-    if (!['A', 'B'].includes(provider)) {
-      throw new BadRequestException('Invalid provider');
-    }
-
-    const transactionId = uuidv4();
-
-    const payment = await this.billsService.payBill(userId, billId, provider as 'A' | 'B', transactionId);
-
-    return {
-      success: true,
-      message: 'Bill paid successfully and wallet charged successfully',
-      data: payment,
     };
   }
 }

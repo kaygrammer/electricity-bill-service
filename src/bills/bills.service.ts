@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException, InternalServerErrorException, BadRequestException } from '@nestjs/common';
 import { Bill } from './bill.model';
+import { Wallet } from 'src/wallets/wallet.model';
 import { WalletService } from 'src/wallets/wallets.service';
 import { EventEmitter2 } from 'eventemitter2';
 import { CreateBillDto } from './dto/create-bill.dto';
@@ -21,13 +22,20 @@ export class BillsService {
 
   async createBill(userId: string, createBillDto: CreateBillDto): Promise<Bill> {
     try {
+      console.log(createBillDto);
       const parsedAmount = parseFloat(createBillDto.amount.toString());
 
       if (isNaN(parsedAmount) || parsedAmount <= 0) {
         throw new BadRequestException('Invalid amount provided');
       }
 
-      const bill = await Bill.create({ userId, amount: parsedAmount, status: 'Pending' });
+      const bill = await Bill.create({
+        userId,
+        amount: parsedAmount,
+        meterNumber: createBillDto.meterNumber,
+        provider: createBillDto.provider,
+        status: 'Pending',
+      });
 
       this.eventEmitter.emit('bill_created', {
         billId: bill.id,
@@ -76,12 +84,7 @@ export class BillsService {
     }
   }
 
-  async payBill(userId: string, billId: string, provider: 'A' | 'B', transactionId: string): Promise<Bill> {
-    const wallet = await this.walletService.findWalletByUserId(userId);
-
-    const walletBalance = parseFloat(wallet.balance.toString());
-    const bill = await this.getBillById(billId);
-
+  private validateBill(bill: Bill, wallet: Wallet): void {
     if (!bill) {
       throw new NotFoundException('Bill not found');
     }
@@ -90,38 +93,52 @@ export class BillsService {
       throw new BadRequestException('This bill has already been paid');
     }
 
-    const existingPayment = await Bill.findOne({ where: { transactionId } });
-    if (existingPayment) {
-      throw new BadRequestException('Possible duplicate payment detected');
-    }
-
+    const walletBalance = parseFloat(wallet.balance.toString());
     const billAmount = parseFloat(bill.amount.toString());
     if (walletBalance < billAmount) {
       this.eventEmitter.emit('low_balance', { userId: bill.userId, balance: wallet.balance });
       throw new BadRequestException('Insufficient funds in wallet');
     }
+  }
 
+  private async processPayment(provider: 'A' | 'B', billAmount: number): Promise<boolean> {
+    switch (provider) {
+      case 'B':
+        return await this.providerBService.processPayment(billAmount);
+      case 'A':
+      default:
+        return await this.providerAService.processPayment(billAmount);
+    }
+  }
+
+  private async finalizeBillPayment(walletId: string, bill: Bill, provider: 'A' | 'B', billAmount: number): Promise<Bill> {
     return this.sequelize.transaction(async (transaction) => {
-      let paymentSuccess: boolean;
-      if (provider === 'A') {
-        paymentSuccess = await this.providerAService.processPayment(billAmount);
-      } else {
-        paymentSuccess = await this.providerBService.processPayment(billAmount);
-      }
+      const paymentSuccess = await this.processPayment(provider, billAmount);
 
       if (!paymentSuccess) {
         throw new InternalServerErrorException('Failed to process payment with provider');
       }
 
-      await this.walletService.deductFunds(wallet.id, billAmount, transaction);
+      await this.walletService.deductFunds(walletId, billAmount, transaction);
 
       bill.status = 'Paid';
-      bill.transactionId = transactionId;
       await bill.save({ transaction });
 
       this.eventEmitter.emit('bill_paid', { billId: bill.id, userId: bill.userId, amount: billAmount });
 
       return bill;
     });
+  }
+
+  async payBill(userId: string, validationRef: string): Promise<Bill> {
+    const wallet = await this.walletService.findWalletByUserId(userId);
+    const bill = await this.getBillById(validationRef);
+
+    this.validateBill(bill, wallet);
+
+    const provider = bill.provider as 'A' | 'B';
+    const billAmount = parseFloat(bill.amount.toString());
+
+    return this.finalizeBillPayment(wallet.id, bill, provider, billAmount);
   }
 }

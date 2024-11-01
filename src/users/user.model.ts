@@ -1,8 +1,7 @@
-// src/users/user.model.ts
 import { Column, Model, Table, DataType, HasMany } from 'sequelize-typescript';
 import { Bill } from '../bills/bill.model';
 import { Wallet } from '../wallets/wallet.model';
-import * as bcrypt from 'bcrypt';
+import { hashPassword, validatePassword } from 'src/common/password.utils';
 import { v4 as uuidv4 } from 'uuid';
 
 @Table({
@@ -44,10 +43,10 @@ export class User extends Model<User> {
   wallets: Wallet[];
 
   async validatePassword(password: string): Promise<boolean> {
-    return bcrypt.compare(password, this.password);
+    return validatePassword(password, this.password);
   }
 
   async hashPassword() {
-    this.password = await bcrypt.hash(this.password, 10);
+    this.password = await hashPassword(this.password);
   }
 }

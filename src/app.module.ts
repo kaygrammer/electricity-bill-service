@@ -25,7 +25,7 @@ import { LoggerMiddleware } from 'middleware/logger.middleware';
       database: process.env.DB_DATABASE,
       models: [User, Bill, Wallet],
       autoLoadModels: true,
-      synchronize: true,
+      synchronize: false,
     }),
     EventEmitterModule.forRoot(),
     BillsModule,
