@@ -12,7 +12,13 @@ This document provides a list of available API endpoints for the Electricity Bil
 
 - **Add Funds to Wallet**  
   `POST /wallets/add-funds`  
-  [https://electricity-bill-service.onrender.com/wallets/add-funds](https://electricity-bill-service.onrender.com/wallets/add-funds)
+  [https://electricity-bill-service.onrender.com/wallets/add-funds](https://electricity-bill-service.onrender.com/wallets/add-funds)  
+
+  ### Request Body
+  ```json
+  {
+      "amount": 4000
+  }
 
 - **Get Wallet Information**  
   `GET /wallets`  
