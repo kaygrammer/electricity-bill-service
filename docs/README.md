@@ -22,7 +22,15 @@ This document provides a list of available API endpoints for the Electricity Bil
 
 - **Verify Electricity Bill**  
   `POST /electricity/verify`  
-  [https://electricity-bill-service.onrender.com/electricity/verify](https://electricity-bill-service.onrender.com/electricity/verify)
+  [https://electricity-bill-service.onrender.com/electricity/verify](https://electricity-bill-service.onrender.com/electricity/verify)  
+
+  ### Request Body
+  ```json
+  {
+      "amount": 5000,
+      "meterNumber": "HHATEBN",
+      "provider": "A"
+  }
 
 - **Pay Electricity Bill**  
   `POST /electricity/Vend/:validationRef/pay`  
