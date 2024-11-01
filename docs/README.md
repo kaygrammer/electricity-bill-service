@@ -4,6 +4,10 @@ This project is an electricity billing service that allows users to create bills
 
 ---
 
+## Postman Documentation
+You can view and interact with the API using Postman. (https://documenter.getpostman.com/view/15577989/2sAY4vhP2v).
+
+
 # Electricity Bill Service API Endpoints
 
 This document provides a list of available API endpoints for the Electricity Bill Service.
